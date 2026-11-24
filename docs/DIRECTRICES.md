@@ -26,3 +26,7 @@ Cada regla tiene un código. Testing cita el código en cada fallo.
 ## Proceso
 - **D14** Develop entrega con el resumen "Hecho / Cómo probarlo / Pendiente".
 - **D15** Un commit por tarea aprobada, con mensaje descriptivo.
+
+## Diseño y movimiento
+- **D16** Las animaciones son sutiles (≤ 600 ms, sin bucles que distraigan en las vistas de trabajo) y se desactivan con `prefers-reduced-motion: reduce`. Nada se anima de forma que mueva el layout (CLS).
+- **D17** Las imágenes usan `next/image` con `alt` descriptivo en español (o `alt=""` si son decorativas), tamaños definidos y `priority` solo en la imagen principal visible al cargar. Ninguna imagen de `public/` pesa más de 300 KB.
