@@ -12,9 +12,24 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const DESCRIPTION = "Seguimiento de tus candidaturas de empleo: estados, notas y tu tasa de respuesta en un solo sitio.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://postula-candidaturas.vercel.app"),
   title: "Postula",
-  description: "Seguimiento de tus candidaturas de empleo.",
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    locale: "es_ES",
+    siteName: "Postula",
+    title: "Postula · Tu búsqueda de empleo, bajo control",
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Postula · Tu búsqueda de empleo, bajo control",
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

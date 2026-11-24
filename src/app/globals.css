@@ -12,8 +12,73 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/*
+ * Movimiento (D16): solo opacity/transform (sin CLS), duraciones ≤ 600 ms.
+ * La flotación del hero es el único bucle y solo se usa en la portada.
+ */
+@theme {
+  --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --animate-fade-up: fade-up 500ms var(--ease-out-soft) both;
+  --animate-fade-in: fade-in 500ms var(--ease-out-soft) both;
+  --animate-grow-x: grow-x 600ms var(--ease-out-soft) both;
+  --animate-float: float 7s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes grow-x {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Sin movimiento si el sistema lo pide: todo aparece ya en su estado final. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

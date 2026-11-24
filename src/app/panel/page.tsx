@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AppHeader } from "@/components/app-header";
@@ -10,6 +11,7 @@ import { buttonStyles } from "@/components/ui";
 import { filterApplications, panelHref, parseFilters } from "@/lib/applications";
 import { listApplications } from "@/lib/applications-data";
 import { requireUser } from "@/lib/auth";
+import { staggerStyle } from "@/lib/motion";
 import { isNoticeKey } from "@/lib/notices";
 import { computeStats } from "@/lib/stats";
 
@@ -56,7 +58,7 @@ async function Panel({ searchParams }: { searchParams: PageProps<"/panel">["sear
         ) : (
           <>
             <StatsOverview stats={stats} />
-            <section aria-labelledby="candidaturas" className="flex flex-col gap-4">
+            <section aria-labelledby="candidaturas" className="flex flex-col gap-4 animate-fade-in" style={staggerStyle(4)}>
               <h2 id="candidaturas" className="text-lg font-semibold text-zinc-900">
                 Candidaturas
               </h2>
@@ -87,11 +89,21 @@ async function Panel({ searchParams }: { searchParams: PageProps<"/panel">["sear
 
 function EmptyState() {
   return (
-    <section className="flex flex-col items-center rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
-      <span aria-hidden="true" className="grid size-12 place-items-center rounded-full bg-indigo-50 text-2xl text-indigo-600">
-        ✦
-      </span>
-      <h2 className="mt-4 text-lg font-semibold text-zinc-900">Aún no tienes candidaturas</h2>
+    <section
+      aria-labelledby="sin-candidaturas"
+      className="flex flex-col items-center rounded-2xl border border-dashed border-indigo-200 bg-gradient-to-b from-indigo-50/60 to-white px-6 py-10 text-center animate-fade-up sm:py-12"
+    >
+      <Image
+        src="/illustrations/empty.webp"
+        alt=""
+        width={640}
+        height={640}
+        sizes="(min-width: 640px) 200px, 160px"
+        className="size-40 sm:size-50"
+      />
+      <h2 id="sin-candidaturas" className="mt-2 text-lg font-semibold text-zinc-900">
+        Aún no tienes candidaturas
+      </h2>
       <p className="mt-1 max-w-sm text-sm text-zinc-600">
         Añade la primera oferta a la que te has apuntado y aquí verás tus totales, tu tasa de respuesta y la actividad de la semana.
       </p>

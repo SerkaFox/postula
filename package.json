@@ -9,9 +9,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:rls": "node --env-file=.env.local scripts/test-rls.mjs",
+    "test:rls": "node --env-file-if-exists=.env.local scripts/test-rls.mjs",
     "seed": "node --env-file=.env.local scripts/seed.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test -- --passWithNoTests && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run test -- --passWithNoTests && npm run build",
+    "test:e2e": "node --env-file-if-exists=.env.local node_modules/@playwright/test/cli.js test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -22,6 +23,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^22.20.5",
     "@types/react": "^19",

@@ -11,3 +11,5 @@
 | T5 | 1 | develop | entregado | `scripts/seed.mjs` idempotente (usuario demo + 10 candidaturas), README con el equipo de agentes y diagrama, email visible (recortado) en móvil. |
 | T5 | 1 | testing | **APROBADO** | Seed ×2 sin duplicados, contraseña ausente de todo el historial, README verificado contra el repo, mermaid válido, 320 px en local y producción, RLS 10/10. |
 | Final | — | orquestador | desplegado | Producción en Vercel: https://postula-candidaturas.vercel.app (pública, sin Vercel Authentication). |
+| T6+T7 | 1 | develop | entregado | Ilustraciones de Codex integradas, animaciones CSS con `prefers-reduced-motion`, imagen OG; Playwright e2e (13 tests) y GitHub Actions. 47 unit + 13 e2e en verde. |
+| T6+T7 | 1 | testing | **APROBADO** | D16: solo transform/opacity, CLS 0,0000, reduced-motion verificado; D17: next/image, un solo preload, ≤ 46 KB; CI reproducido sin secretos; contraste AA del h1 medido. Notas → T8. |

@@ -1,5 +1,7 @@
 # Postula
 
+[![CI](https://github.com/SerkaFox/postula/actions/workflows/ci.yml/badge.svg)](https://github.com/SerkaFox/postula/actions/workflows/ci.yml)
+
 **Postula** es un seguimiento de candidaturas para quien busca trabajo: guarda las ofertas a las que te apuntas, su estado y tus notas, y te enseña de un vistazo cómo va tu búsqueda.
 
 - **App en producción:** https://postula-candidaturas.vercel.app
@@ -23,7 +25,8 @@
 | Datos y auth | Supabase: Auth (email + contraseña) y Postgres con Row Level Security |
 | Estilos | Tailwind CSS 4 |
 | Validación | zod (mismos esquemas en formulario y Server Action) |
-| Tests | vitest (lógica pura) + `scripts/test-rls.mjs` (aislamiento contra Supabase real) |
+| Tests | vitest (lógica pura), `scripts/test-rls.mjs` (aislamiento contra Supabase real) y Playwright (e2e en `e2e/`) |
+| CI | GitHub Actions: lint + tipos + unit + build en cada push; RLS + e2e cuando hay secretos |
 | Despliegue | Vercel |
 
 ## Cómo se construyó: un equipo de 3 agentes
@@ -36,7 +39,7 @@ Postula se ha desarrollado con Claude Code organizado como un pequeño equipo de
 | **Develop** | [`.claude/agents/develop.md`](.claude/agents/develop.md) | Programa cada tarea siguiendo su guía (servidor primero, zod, RLS, accesibilidad) y entrega con el formato "Hecho / Cómo probarlo / Pendiente". |
 | **Testing** | [`.claude/agents/testing.md`](.claude/agents/testing.md) | Revisa la entrega contra las reglas, ejecuta `npm run check` y `npm run test:rls`, prueba la app en el navegador e intenta romperla. Responde **APROBADO** o **FALLOS** citando la regla incumplida. |
 
-Las reglas comunes están en [`docs/DIRECTRICES.md`](docs/DIRECTRICES.md): cada una tiene un código (D1–D15) que Develop debe cumplir y Testing cita en cada fallo (calidad, seguridad, datos, interfaz y proceso).
+Las reglas comunes están en [`docs/DIRECTRICES.md`](docs/DIRECTRICES.md): cada una tiene un código (D1–D17) que Develop debe cumplir y Testing cita en cada fallo (calidad, seguridad, datos, interfaz y proceso).
 
 ### El bucle
 
@@ -70,7 +73,7 @@ Requisitos: Node.js 22 y un proyecto de Supabase.
    |---|---|
    | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto (navegador y servidor) |
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave publicable (navegador y servidor) |
-   | `SUPABASE_SECRET_KEY` | Solo para los scripts locales `test:rls` y `seed`; nunca en Vercel ni en el navegador |
+   | `SUPABASE_SECRET_KEY` | Solo para `test:rls`, `test:e2e` y `seed` (local y secretos de CI); nunca en Vercel ni en el navegador |
 3. Aplica las migraciones de `supabase/migrations/` en orden (con `supabase db push` o desde el editor SQL de Supabase).
 4. Arranca el servidor de desarrollo:
    ```bash
@@ -84,21 +87,35 @@ Requisitos: Node.js 22 y un proyecto de Supabase.
 | `npm run dev` | Servidor local en http://localhost:3000 |
 | `npm run check` | eslint + `tsc --noEmit` + vitest + `next build` (lo que Testing exige en verde) |
 | `npm run test:rls` | Crea dos usuarios temporales y comprueba contra Supabase que uno no puede leer, editar ni borrar los datos del otro |
+| `npm run test:e2e` | Tests e2e con Playwright (registro, login, CRUD, filtros, cambio de estado, 404 de una candidatura ajena, 320 px, movimiento reducido). Compila y arranca la app en el puerto 3200 (o usa `E2E_BASE_URL`); crea sus usuarios con la API de administración y los borra al terminar. La primera vez: `npx playwright install chromium` |
 | `DEMO_PASSWORD=… npm run seed` | Crea o reutiliza `demo@postula.app` con esa contraseña (email confirmado) y sustituye sus candidaturas por 10 de ejemplo; se puede repetir sin duplicar datos |
+
+## Diseño
+
+- Ilustraciones propias generadas con **Codex CLI** en un mismo estilo (3D suave, paleta índigo/azul/ámbar/esmeralda) y optimizadas a WebP; prompts y uso de cada una en [`docs/ASSETS.md`](docs/ASSETS.md). Se usan solo en la portada, la sección de agentes, el estado vacío del panel y el login/registro.
+- Imagen para redes (Open Graph y Twitter) generada con `next/og` sobre `og-bg.jpg`.
+- Movimiento sutil solo con CSS: aparición escalonada, contadores en los KPI, barra por estado que crece y una flotación suave en la portada. Todo se desactiva con `prefers-reduced-motion` y nada mueve el layout (reglas D16–D17).
+
+## Integración continua
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta en cada push y pull request `lint`, `typecheck`, los tests unitarios y `build` (con variables públicas de relleno, sin secretos). Si el repositorio tiene los secretos `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `SUPABASE_SECRET_KEY`, un segundo job instala Chromium y ejecuta `test:rls` y `test:e2e`.
 
 ## Seguridad
 
 - **RLS en todas las tablas:** `applications` solo permite `select`, `insert`, `update` y `delete` cuando `auth.uid() = user_id`, y el rol anónimo no tiene acceso. Además, cada consulta del servidor filtra por el usuario de la sesión.
 - **Server Actions** que validan la entrada con zod y comprueban la sesión antes de tocar datos; las páginas privadas redirigen a `/login` desde el servidor.
 - **Claves solo en variables de entorno** (`.env.local`, panel de Vercel): `.env*` está en `.gitignore` y `.env.example` no lleva valores reales. La contraseña del usuario de prueba tampoco está en el repositorio.
-- **Al navegador solo llegan** la URL de Supabase y la clave publicable. La clave secreta solo la usan los scripts locales.
+- **Al navegador solo llegan** la URL de Supabase y la clave publicable. La clave secreta solo la usan los scripts y los tests (en local o como secreto de CI).
 
 ## Estructura
 
 ```
 .claude/agents/        develop.md y testing.md (subagentes)
+.github/workflows/     ci.yml (GitHub Actions)
 CLAUDE.md              instrucciones del orquestador
-docs/                  SPEC, TASKS, DIRECTRICES y AGENT_LOG
+docs/                  SPEC, TASKS, DIRECTRICES, ASSETS y AGENT_LOG
+e2e/                   tests e2e con Playwright
+public/illustrations/  ilustraciones (WebP) y fondo de la imagen social
 scripts/               test-rls.mjs y seed.mjs
 supabase/migrations/   esquema de la base de datos + RLS
 src/
