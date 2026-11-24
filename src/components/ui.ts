@@ -10,7 +10,7 @@ export const buttonStyles = {
 } as const;
 
 export const inputStyles =
-  "w-full rounded-lg border bg-white px-3 py-2 text-base text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1";
+  "w-full rounded-lg border bg-white px-3 py-2 text-base text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 data-autofilled:border-indigo-400 data-autofilled:bg-indigo-50/70";
 
 /** Tarjetas: `interactive` se eleva un poco al pasar el ratón (solo con movimiento permitido). */
 const cardBase = "rounded-2xl border border-zinc-200 bg-white shadow-sm";

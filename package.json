@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:rls": "node --env-file-if-exists=.env.local scripts/test-rls.mjs",
     "seed": "node --env-file=.env.local scripts/seed.mjs",

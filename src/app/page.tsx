@@ -94,7 +94,7 @@ export default function Home() {
           <Link href="/login" className={buttonStyles.ghost}>
             Entrar
           </Link>
-          <Link href="/registro" className={`${buttonStyles.primary} hidden sm:inline-flex`}>
+          <Link href="/registro" className={`${buttonStyles.primary} max-sm:hidden`}>
             Crear cuenta
           </Link>
         </nav>

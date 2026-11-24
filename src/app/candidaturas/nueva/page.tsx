@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ApplicationForm } from "@/components/application-form";
-import { Card, FormPageShell, FormPageSkeleton } from "@/components/page-shell";
+import { NewApplicationForm } from "@/components/new-application-form";
+import { FormPageShell, FormPageSkeleton } from "@/components/page-shell";
 import { requireUser } from "@/lib/auth";
 import { toDayKey } from "@/lib/dates";
 
@@ -19,9 +19,7 @@ async function NewApplication() {
   const user = await requireUser();
   return (
     <FormPageShell email={user.email} title="Nueva candidatura" subtitle="Los campos con * son obligatorios.">
-      <Card>
-        <ApplicationForm defaultDay={toDayKey(new Date())} />
-      </Card>
+      <NewApplicationForm defaultDay={toDayKey(new Date())} aiEnabled={Boolean(process.env.GEMINI_API_KEY)} />
     </FormPageShell>
   );
 }

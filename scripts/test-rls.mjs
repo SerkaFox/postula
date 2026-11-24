@@ -1,4 +1,4 @@
-// Comprueba contra Supabase que RLS aísla las candidaturas entre usuarios.
+// Comprueba contra Supabase que RLS aísla las candidaturas y los usos de IA entre usuarios.
 // Uso: npm run test:rls (lee .env.local). Sale con código 1 si algo falla.
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
@@ -128,6 +128,62 @@ try {
   await a.client.from("applications").delete().eq("id", row.id);
   const { data: afterOwnDel } = await admin.from("applications").select("id").eq("id", row.id);
   check("A puede borrar su candidatura", afterOwnDel?.length === 0);
+
+  // --- ai_usage: registro de usos de la IA (límite diario) ---
+  const { data: firstRemaining, error: rpcErr } = await a.client.rpc("consume_ai_quota", { daily_limit: 20 });
+  check("A puede consumir un uso de IA con consume_ai_quota", !rpcErr && firstRemaining === 19, rpcErr?.message ?? `quedan ${firstRemaining}`);
+  const { data: ownUsage } = await a.client.from("ai_usage").select("id, user_id").eq("user_id", a.id);
+  check("A puede leer sus usos de IA", ownUsage?.length === 1);
+  const usageId = ownUsage?.[0]?.id;
+
+  const { error: directInsErr } = await a.client.from("ai_usage").insert({ user_id: a.id });
+  check("Nadie puede insertar usos de IA directamente (solo con la función)", Boolean(directInsErr));
+
+  const { data: bUsage, error: bUsageErr } = await b.client.from("ai_usage").select("id").eq("user_id", a.id);
+  check("B no puede leer los usos de IA de A", !bUsageErr && bUsage?.length === 0, bUsageErr?.message);
+
+  const { error: usageSpoofErr } = await b.client.from("ai_usage").insert({ user_id: a.id });
+  check("B no puede registrar usos de IA a nombre de A", Boolean(usageSpoofErr));
+
+  const { error: usageDateErr } = await a.client
+    .from("ai_usage")
+    .insert({ user_id: a.id, created_at: "2000-01-01T00:00:00Z" });
+  check("A no puede fijar la fecha de un uso de IA", Boolean(usageDateErr));
+
+  await b.client.from("ai_usage").delete().eq("id", usageId);
+  await a.client.from("ai_usage").delete().eq("id", usageId);
+  await a.client.from("ai_usage").update({ user_id: b.id }).eq("id", usageId);
+  const { data: usageAfter } = await admin.from("ai_usage").select("user_id").eq("id", usageId);
+  check(
+    "Nadie (ni B ni A) puede borrar o editar usos de IA para saltarse el límite",
+    usageAfter?.length === 1 && usageAfter[0].user_id === a.id,
+  );
+
+  const { data: anonUsage } = await anon.from("ai_usage").select("id").eq("id", usageId);
+  check("Un usuario anónimo no puede leer usos de IA", !anonUsage || anonUsage.length === 0);
+
+  const { error: anonRpcErr } = await anon.rpc("consume_ai_quota", { daily_limit: 20 });
+  check("Un usuario anónimo no puede consumir usos de IA", Boolean(anonRpcErr));
+
+  // Límite atómico: 30 llamadas en paralelo de B → como mucho 20 consiguen uso.
+  const calls = await Promise.all(
+    Array.from({ length: 30 }, () => b.client.rpc("consume_ai_quota", { daily_limit: 20 })),
+  );
+  const granted = calls.filter((r) => !r.error && typeof r.data === "number" && r.data >= 0).length;
+  const denied = calls.filter((r) => !r.error && r.data === -1).length;
+  const { count: bUsageRows } = await admin
+    .from("ai_usage")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", b.id);
+  check(
+    "30 llamadas en paralelo: exactamente 20 usos concedidos y 10 rechazados",
+    granted === 20 && denied === 10 && bUsageRows === 20,
+    `concedidos ${granted}, rechazados ${denied}, filas ${bUsageRows}, errores ${calls.filter((r) => r.error).length}`,
+  );
+  const { data: afterLimit } = await b.client.rpc("consume_ai_quota", { daily_limit: 20 });
+  check("Con el límite agotado la función devuelve -1", afterLimit === -1);
+  const { data: raisedLimit } = await b.client.rpc("consume_ai_quota", { daily_limit: 1000 });
+  check("No se puede subir el límite desde el cliente", raisedLimit === -1);
 } catch (err) {
   check("ejecución sin errores", false, err instanceof Error ? err.message : String(err));
 } finally {

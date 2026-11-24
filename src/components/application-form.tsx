@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, type Ref } from "react";
 import {
   createApplication,
   updateApplication,
@@ -32,6 +32,8 @@ type Props = {
   application?: Application;
   /** Fecha por defecto (aaaa-mm-dd) para una candidatura nueva. */
   defaultDay?: string;
+  /** Referencia al <form>, para que el autorrelleno con IA escriba en los campos. */
+  formRef?: Ref<HTMLFormElement>;
 };
 
 function initialValues(application: Application | undefined, defaultDay: string | undefined) {
@@ -51,14 +53,14 @@ function initialValues(application: Application | undefined, defaultDay: string 
   } satisfies Record<ApplicationField, string>;
 }
 
-export function ApplicationForm({ application, defaultDay }: Props) {
+export function ApplicationForm({ application, defaultDay, formRef }: Props) {
   const action = application ? updateApplication : createApplication;
   const [state, formAction, pending] = useActionState(action, initialState);
   const values = state.values ?? initialValues(application, defaultDay);
   const errors = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} noValidate className="flex flex-col gap-6">
+    <form ref={formRef} action={formAction} noValidate className="flex flex-col gap-6">
       {application ? <input type="hidden" name="id" value={application.id} /> : null}
       <FormAlert message={state.formError} />
       {state.fieldErrors ? (
