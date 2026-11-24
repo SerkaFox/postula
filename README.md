@@ -26,7 +26,7 @@
 | Datos y auth | Supabase: Auth (email + contraseña) y Postgres con Row Level Security |
 | Estilos | Tailwind CSS 4 |
 | Validación | zod (mismos esquemas en formulario y Server Action) |
-| IA | Google Gemini (`gemini-3.5-flash`, con `gemini-3.8-flash` y `gemini-flash-latest` de reserva si está saturado) por REST, sin SDK, con salida JSON estructurada |
+| IA | Google Gemini por REST, sin SDK, con salida JSON estructurada: `gemini-3.5-flash-lite` y, de reserva si está saturado o sin cuota, `gemini-3.5-flash`, `gemini-flash-latest` y `gemini-3-flash-preview` |
 | Tests | vitest (lógica pura), `scripts/test-rls.mjs` (aislamiento contra Supabase real) y Playwright (e2e en `e2e/`) |
 | CI | GitHub Actions: lint + tipos + unit + build en cada push; RLS + e2e cuando hay secretos |
 | Despliegue | Vercel |

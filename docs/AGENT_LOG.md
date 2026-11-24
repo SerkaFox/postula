@@ -20,3 +20,6 @@
 | CI | 1 | GitHub Actions | **rojo** | En una máquina limpia `tsc` no encuentra `PageProps`/`LayoutProps` (tipos generados por `next typegen`; en local existían por builds previos). |
 | T8 | 3 | develop | corregido | `typecheck` = `next typegen && tsc` (verificado en copia limpia); cadena de modelos Gemini reales con reintento y plazos (15 s/intento, 45 s total), mensaje según el peor estado; e2e de IA se salta solo ante caída externa. 141 unit. |
 | T8 | 3 | testing | **APROBADO** | CI reproducida con `env -i` en copia limpia; e2e 14/14 con Gemini real; plazos abortan de verdad; RLS 22/22. |
+| T8 | 4 | orquestador | hallazgo en producción | En Vercel, «IA saturada»: la cuota gratuita diaria de `gemini-3.5-flash` estaba agotada (429 RESOURCE_EXHAUSTED) por las pruebas. |
+| T8 | 4 | develop | corregido | Modelo `lite` primero, 429 de cuota salta al siguiente modelo sin reintento, `maxDuration = 60`; instrucción más estricta para que `notas` no invente habilidades. 146 unit. |
+| T8 | 4 | testing | **APROBADO** | Rutas de error cubiertas por tests; prueba en vivo de las notas pendiente de cuota de Gemini. |

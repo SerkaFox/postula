@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AutofillError } from "./autofill";
-import { buildGeminiRequest, extractOfferWithGemini, GEMINI_MODELS, geminiEndpoint, parseGeminiResponse, SYSTEM_INSTRUCTION } from "./gemini";
+import { buildGeminiRequest, extractOfferWithGemini, GEMINI_MODELS, geminiEndpoint, isQuotaExhausted, parseGeminiResponse, SYSTEM_INSTRUCTION } from "./gemini";
 
 function geminiBody(json: unknown) {
   return { candidates: [{ content: { parts: [{ text: typeof json === "string" ? json : JSON.stringify(json) }] } }] };
@@ -14,6 +14,8 @@ describe("buildGeminiRequest", () => {
     expect(body.generationConfig.responseMimeType).toBe("application/json");
     expect(body.generationConfig.responseSchema.type).toBe("OBJECT");
     expect(SYSTEM_INSTRUCTION).toMatch(/no fiables/i);
+    expect(SYSTEM_INSTRUCTION).toMatch(/LITERALMENTE/);
+    expect(SYSTEM_INSTRUCTION).toMatch(/NO deduzcas/);
     const text = body.contents[0]?.parts[0]?.text ?? "";
     // La marca de cierre solo aparece una vez: la del propio mensaje.
     expect(text.match(/<<<FIN_OFERTA>>>/g)).toHaveLength(1);
@@ -38,8 +40,17 @@ const MODELS = [{ name: "a", thinking: { thinkingBudget: 0 } }, { name: "b" }, {
 const noSleep = vi.fn(async () => {});
 const ok = () => new Response(JSON.stringify(geminiBody(EXTRACTION)), { status: 200 });
 const status = (code: number) => new Response("{}", { status: code });
+const QUOTA_BODY = JSON.stringify({ error: { code: 429, message: "You exceeded your current quota", status: "RESOURCE_EXHAUSTED" } });
 const urls = (fetchImpl: ReturnType<typeof vi.fn<typeof fetch>>) => fetchImpl.mock.calls.map(([url]) => String(url));
 const opts = (fetchImpl: typeof fetch) => ({ apiKey: "k", sourceUrl: null, fetchImpl, models: MODELS, sleep: noSleep });
+
+describe("isQuotaExhausted", () => {
+  it("reconoce la cuota agotada solo en un 429 con RESOURCE_EXHAUSTED o quota", () => {
+    expect(isQuotaExhausted(429, QUOTA_BODY)).toBe(true);
+    expect(isQuotaExhausted(429, "{}")).toBe(false);
+    expect(isQuotaExhausted(503, QUOTA_BODY)).toBe(false);
+  });
+});
 
 describe("extractOfferWithGemini", () => {
   it("llama al modelo principal con la clave en la cabecera y devuelve la extracción", async () => {
@@ -51,6 +62,11 @@ describe("extractOfferWithGemini", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect((init.headers as Record<string, string>)["x-goog-api-key"]).toBe("clave-de-prueba");
     expect(url).not.toContain("clave-de-prueba");
+  });
+
+  it("el primero es el modelo lite, sin thinkingBudget (lo rechaza)", () => {
+    expect(GEMINI_MODELS[0]).toEqual({ name: "gemini-3.5-flash-lite" });
+    expect(GEMINI_MODELS.map((m) => m.name)).toEqual(["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3-flash-preview"]);
   });
 
   it("envía la configuración de razonamiento solo a los modelos que la aceptan", async () => {
@@ -68,6 +84,27 @@ describe("extractOfferWithGemini", () => {
     expect(result.empresa).toBe("Acme");
     expect(urls(fetchImpl)).toEqual([geminiEndpoint("a"), geminiEndpoint("a")]);
     expect(noSleep).toHaveBeenCalledTimes(1);
+  });
+
+  it("con la cuota agotada (429 RESOURCE_EXHAUSTED) no reintenta y pasa al siguiente", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(QUOTA_BODY, { status: 429 })).mockResolvedValueOnce(ok());
+    noSleep.mockClear();
+    const result = await extractOfferWithGemini("texto", opts(fetchImpl));
+    expect(result.empresa).toBe("Acme");
+    expect(urls(fetchImpl)).toEqual([geminiEndpoint("a"), geminiEndpoint("b")]);
+    expect(noSleep).not.toHaveBeenCalled();
+  });
+
+  it("si todos tienen la cuota agotada el error es ai_busy", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response(QUOTA_BODY, { status: 429 }));
+    await expect(extractOfferWithGemini("texto", opts(fetchImpl))).rejects.toMatchObject({ code: "ai_busy" });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it("un 429 sin cuota agotada (ráfaga) sí reintenta el principal", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(status(429)).mockResolvedValueOnce(ok());
+    await extractOfferWithGemini("texto", opts(fetchImpl));
+    expect(urls(fetchImpl)).toEqual([geminiEndpoint("a"), geminiEndpoint("a")]);
   });
 
   it("después del reintento pasa a los modelos de reserva", async () => {

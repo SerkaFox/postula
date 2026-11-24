@@ -10,14 +10,15 @@ export type GeminiModel = {
 /**
  * Modelos en orden de preferencia; todos existen para la clave del proyecto
  * (comprobado con la API de modelos). gemini-2.5-flash ya no se ofrece a claves
- * nuevas. Los "lite" rechazan `thinkingBudget: 0`, por eso usan su configuración
- * por defecto.
+ * nuevas. Primero el "lite": basta para extraer datos, responde en ~1 s y tiene
+ * mucha más cuota gratuita. Los "lite" rechazan `thinkingBudget: 0`, por eso
+ * usan su configuración por defecto.
  */
 export const GEMINI_MODELS: readonly GeminiModel[] = [
-  { name: "gemini-3.5-flash", thinking: { thinkingBudget: 0 } },
-  { name: "gemini-3-flash-preview", thinking: { thinkingBudget: 0 } },
-  { name: "gemini-flash-latest" },
   { name: "gemini-3.5-flash-lite" },
+  { name: "gemini-3.5-flash", thinking: { thinkingBudget: 0 } },
+  { name: "gemini-flash-latest" },
+  { name: "gemini-3-flash-preview", thinking: { thinkingBudget: 0 } },
 ];
 
 export function geminiEndpoint(model: string): string {
@@ -38,7 +39,8 @@ export const SYSTEM_INSTRUCTION = [
   "ubicacion: ciudad o región (p. ej. «Madrid» o «Barcelona, España»); null si es 100 % remoto sin ciudad o no se indica.",
   "modalidad: exactamente «remoto», «hibrido» o «presencial»; null si no se indica.",
   "salario: tal como aparece en la oferta (p. ej. «35.000–40.000 € brutos/año»); null si no se indica.",
-  "notas: resumen en español de 2 o 3 líneas cortas con los requisitos clave y el stack tecnológico.",
+  "notas: 2 o 3 líneas cortas en español, solo con requisitos, tecnologías y condiciones que aparecen LITERALMENTE en la oferta (experiencia, stack, idiomas, contrato, beneficios…).",
+  "En notas NO deduzcas ni añadas habilidades, tecnologías, tareas o rasgos del puesto que no estén escritos en la oferta (por ejemplo, no añadas «microservicios» o «alta concurrencia» si no aparecen), ni frases de relleno genéricas («se busca un perfil proactivo», «gran oportunidad»…). Si la oferta no da requisitos, usa null.",
   "es_oferta: false si el contenido no es una oferta de empleo (por ejemplo, una página de login o de error).",
 ].join("\n");
 
@@ -100,17 +102,24 @@ type Options = {
   sleep?: (ms: number) => Promise<void>;
 };
 
-/** Estados con los que el servicio está saturado o sin cuota: se reintenta y se avisa de "saturada". */
+/** Estados con los que el servicio está saturado o sin cuota: el error final es "saturada". */
 const BUSY = new Set([429, 503]);
 const BACKOFF_MS = 800;
+
+/** true si un 429 es cuota agotada (no se recupera reintentando en segundos). */
+export function isQuotaExhausted(status: number, body: string): boolean {
+  return status === 429 && /RESOURCE_EXHAUSTED|quota/i.test(body);
+}
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
  * Pide a Gemini los datos de la oferta. Reintenta una vez el modelo principal
- * si está saturado y después prueba los de reserva. Si ninguno responde, el
- * error depende del peor estado visto: saturación (429/503/plazo agotado) →
- * ai_busy; el resto → ai_unavailable. Lanza siempre AutofillError.
+ * si está saturado (503, plazo agotado o 429 sin cuota agotada) y después
+ * prueba los de reserva; con la cuota agotada pasa directamente al siguiente.
+ * Si ninguno responde, el error depende del peor estado visto: saturación o
+ * cuota (429/503/plazo agotado) → ai_busy; el resto → ai_unavailable.
+ * Lanza siempre AutofillError.
  */
 export async function extractOfferWithGemini(offerText: string, options: Options): Promise<OfferExtraction> {
   const {
@@ -126,14 +135,15 @@ export async function extractOfferWithGemini(offerText: string, options: Options
   const [primary] = models;
   const attempts = primary ? [primary, primary, ...models.slice(1)] : [];
   let busy = false;
+  let retryPrimary = false;
 
   for (const [index, model] of attempts.entries()) {
     if (overall.aborted) break;
-    // El reintento del principal solo tiene sentido si estaba saturado.
     if (index === 1) {
-      if (!busy) continue;
+      if (!retryPrimary) continue;
       await sleep(BACKOFF_MS);
     }
+    const isFirst = index === 0;
     let response: Response;
     try {
       response = await fetchImpl(geminiEndpoint(model.name), {
@@ -145,13 +155,20 @@ export async function extractOfferWithGemini(offerText: string, options: Options
       });
     } catch (err) {
       // Plazo agotado: se trata como saturación. Otros fallos de red: siguiente modelo.
-      if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) busy = true;
+      if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+        busy = true;
+        if (isFirst) retryPrimary = true;
+      }
       continue;
     }
     if (!response.ok) {
       // Clave no válida o sin permiso: ningún modelo va a funcionar.
       if (response.status === 401 || response.status === 403) break;
-      if (BUSY.has(response.status)) busy = true;
+      if (BUSY.has(response.status)) {
+        busy = true;
+        const body = response.status === 429 ? await response.text().catch(() => "") : "";
+        if (isFirst && !isQuotaExhausted(response.status, body)) retryPrimary = true;
+      }
       continue;
     }
 

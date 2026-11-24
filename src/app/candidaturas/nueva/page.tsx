@@ -7,6 +7,10 @@ import { toDayKey } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Nueva candidatura · Postula" };
 
+// El autorrelleno con IA (Server Action de esta página) puede descargar la oferta
+// (máx. 8 s) y probar varios modelos de Gemini (máx. 45 s en total).
+export const maxDuration = 60;
+
 export default function NewApplicationPage() {
   return (
     <Suspense fallback={<FormPageSkeleton label="Cargando formulario…" />}>
