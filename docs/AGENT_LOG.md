@@ -8,3 +8,6 @@
 | T3+T4 | 1 | testing | **FALLOS (1)** | [D12] `notice.tsx`: `value in MESSAGES` acepta claves heredadas → `/panel?aviso=__proto__` tumba el panel (React #441). Resto verificado en navegador: cifras vs fórmula de SPEC, D6 con peticiones manipuladas, 320 px, foco, 404 ajeno. |
 | T3+T4 | 2 | develop | corregido | `isNoticeKey` con `Object.hasOwn` en `src/lib/notices.ts` + test (`__proto__`, `toString`…); notas: zod para `goToPanel`, `buttonStyles` en pantallas de error. 40 tests. |
 | T3+T4 | 2 | testing | **APROBADO** | Fallo cerrado en navegador; sin regresiones (CRUD, cifras, D6, 320 px, foco); RLS 10/10. |
+| T5 | 1 | develop | entregado | `scripts/seed.mjs` idempotente (usuario demo + 10 candidaturas), README con el equipo de agentes y diagrama, email visible (recortado) en móvil. |
+| T5 | 1 | testing | **APROBADO** | Seed ×2 sin duplicados, contraseña ausente de todo el historial, README verificado contra el repo, mermaid válido, 320 px en local y producción, RLS 10/10. |
+| Final | — | orquestador | desplegado | Producción en Vercel: https://postula-candidaturas.vercel.app (pública, sin Vercel Authentication). |

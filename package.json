@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:rls": "node --env-file=.env.local scripts/test-rls.mjs",
+    "seed": "node --env-file=.env.local scripts/seed.mjs",
     "check": "npm run lint && npm run typecheck && npm run test -- --passWithNoTests && npm run build"
   },
   "dependencies": {
