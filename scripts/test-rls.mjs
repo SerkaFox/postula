@@ -74,7 +74,41 @@ try {
     .single();
   check("B no puede editar la candidatura de A", afterUpd?.company === "Empresa A");
 
-  // B no puede reasignarse la fila ni borrarla
+  // A puede editar su propia candidatura
+  const { data: ownUpd, error: ownUpdErr } = await a.client
+    .from("applications")
+    .update({ status: "entrevista" })
+    .eq("id", row.id)
+    .select("status");
+  check(
+    "A puede editar su candidatura",
+    !ownUpdErr && ownUpd?.length === 1 && ownUpd[0].status === "entrevista",
+    ownUpdErr?.message,
+  );
+
+  // B no puede regalar su propia fila a A (with check de la política de update)
+  const { data: bRow, error: bInsErr } = await b.client
+    .from("applications")
+    .insert({ user_id: b.id, company: "Empresa B", position: "Puesto B", status: "guardada" })
+    .select("id")
+    .single();
+  if (bInsErr || !bRow) throw new Error(`B no pudo insertar su fila: ${bInsErr?.message}`);
+  const { error: reassignErr } = await b.client
+    .from("applications")
+    .update({ user_id: a.id })
+    .eq("id", bRow.id);
+  const { data: bRowAfter } = await admin
+    .from("applications")
+    .select("user_id")
+    .eq("id", bRow.id)
+    .single();
+  check(
+    "B no puede cambiar user_id de su fila al de A",
+    Boolean(reassignErr) && bRowAfter?.user_id === b.id,
+    reassignErr ? `user_id final: ${bRowAfter?.user_id}` : "el update no devolvió error",
+  );
+
+  // B no puede borrarla
   await b.client.from("applications").delete().eq("id", row.id);
   const { data: afterDel } = await admin.from("applications").select("id").eq("id", row.id);
   check("B no puede borrar la candidatura de A", afterDel?.length === 1);

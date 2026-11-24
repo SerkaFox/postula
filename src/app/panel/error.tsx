@@ -1,5 +1,7 @@
 "use client";
 
+import { buttonStyles } from "@/components/ui";
+
 export default function PanelError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-12 text-center">
@@ -8,7 +10,7 @@ export default function PanelError({ reset }: { error: Error & { digest?: string
       <button
         type="button"
         onClick={reset}
-        className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+        className={`${buttonStyles.primary} mt-4`}
       >
         Reintentar
       </button>

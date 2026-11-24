@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { APPLICATION_STATUSES, WORK_MODES } from "./applications";
+import { isValidDayKey } from "./dates";
 
 const email = z
   .string()
@@ -26,6 +28,54 @@ export const signupSchema = z
     path: ["confirmPassword"],
   });
 
+/** Texto opcional: recorta espacios y guarda null si queda vacío. */
+function optionalText(max: number, message: string) {
+  return z
+    .string()
+    .trim()
+    .max(max, message)
+    .transform((value) => (value === "" ? null : value));
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.hostname.includes(".");
+  } catch {
+    return false;
+  }
+}
+
+export const applicationSchema = z.object({
+  company: z.string().trim().min(1, "Indica la empresa.").max(200, "Máximo 200 caracteres."),
+  position: z.string().trim().min(1, "Indica el puesto.").max(200, "Máximo 200 caracteres."),
+  url: optionalText(2000, "El enlace es demasiado largo.").refine(
+    (value) => value === null || isHttpUrl(value),
+    "Introduce un enlace válido que empiece por http:// o https://.",
+  ),
+  location: optionalText(200, "Máximo 200 caracteres."),
+  work_mode: z
+    .union([z.enum(WORK_MODES), z.literal("")], { error: "Elige una modalidad válida." })
+    .transform((value) => (value === "" ? null : value)),
+  salary: optionalText(200, "Máximo 200 caracteres."),
+  status: z.enum(APPLICATION_STATUSES, { error: "Elige un estado válido." }),
+  applied_on: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || isValidDayKey(value), "Introduce una fecha válida.")
+    .transform((value) => (value === "" ? null : value)),
+  notes: optionalText(5000, "Las notas no pueden superar 5000 caracteres."),
+});
+
+export const applicationIdSchema = z.uuid("Candidatura no válida.");
+
+export const statusChangeSchema = z.object({
+  id: applicationIdSchema,
+  status: z.enum(APPLICATION_STATUSES, { error: "Elige un estado válido." }),
+});
+
+export type ApplicationInput = z.infer<typeof applicationSchema>;
+export type ApplicationField = keyof z.input<typeof applicationSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 
